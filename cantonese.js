@@ -663,6 +663,66 @@ class Parser {
                     this.skip(1)
                 }
             }
+            
+            else if (this.match(kw_if)) {
+                let cond = this.get_value(this.get(0));
+                this.token_except(kw_then, " : 濑嘢! 揾唔到 '嘅话' ", false, 1);
+                this.token_except(kw_do, " : 濑嘢! 揾唔到 '->' ", false, 2);
+                this.token_except(kw_begin, " : 濑嘢! 揾唔到 '{' ", false, 3);
+                this.skip(4);
+                let if_case_end = 0;
+                let if_should_end = 1;
+                let node_if = [];
+                let stmt_if = [];
+                while (if_case_end != if_should_end && this.pos < this.tokens.length) {
+                    if (this.get(0)[1] == kw_if) {
+                        if_should_end += 1;
+                        stmt_if.push(this.tokens[this.pos]);
+                        this.pos += 1;
+                    }
+                    else if (this.get(0)[1] == kw_end) {
+                        if_case_end += 1;
+                        stmt_if.push(this.tokens[this.pos])
+                        this.pos += 1;
+                    }
+                    else if (this.get(0)[1] == kw_assign || this.get(0)[1] == tr_kw_assign) {
+                        stmt_if.push(this.tokens[this.pos]);
+                        this.pos += 1;
+                        if (this.tokens[this.pos]['value'] == kw_do) {
+                            if_should_end += 1;
+                        }
+                    }
+                    else {
+                        stmt_if.push(this.tokens[this.pos])
+                        this.pos += 1;
+                    }
+                }
+                let _p = new Parser(stmt_if, node_if);
+                _p.parse();
+                this.node_if_new(cond, node_if);
+            }
+
+            else if (this.match([kw_assert, tr_kw_assert])) {
+                this.node_assert_new(this.get_value(this.get(0)));
+                this.skip(2);
+            }
+
+            else if (this.match([kw_raise, tr_kw_raise])) {
+                this.node_raise_new(this.get_value(this.get(0))); 
+            }
+
+            else if (this.match(kw_type, tr_kw_type)) {
+                this.node_gettype_new(this.get_value(this.get(0)))
+                this.skip(1);
+            }
+
+            else if (this.match([kw_pass, tr_kw_pass])) {
+                this.node.push(["node_pass"]);
+            }
+            
+            else if (this.match(kw_break, tr_kw_break)) {
+                this.node_break_new();
+            }
 
             else {
                 break;
@@ -830,6 +890,16 @@ function run(Nodes, TAB = '', label = '', path = '', arg = '') {
             check(TAB);
             TO_JS_CODE += TAB + "let " + Nodes[i][1][1] + " = " + Nodes[i][2][1] + ";\n";
         }
+
+        if (Nodes[i][0] == 'node_pass') {
+            check(TAB);
+            TO_JS_CODE += TAB + ";\n";
+        }
+
+        if (Nodes[i][0] == 'node_break') {
+            check(TAB);
+            TO_JS_CODE += TAB + 'break\n';
+        }
     }
 }
 
@@ -838,4 +908,4 @@ p = new Parser(tokens, node);
 /// console.log(tokens);
 p.parse();
 run(node);
-console.log(TO_JS_CODE)
+console.log(TO_JS_CODE);

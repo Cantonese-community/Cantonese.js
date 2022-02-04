@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Cantonese IDE</title>
+        <script src="http://ajax.aspnetcdn.com/ajax/jQuery/jquery-1.8.0.js"></script>
+    
+        <style>
+            body {
+                background-color: #333;
+                padding: 50px;
+            }
+
+            #code,
+            #preview {
+                float: left;
+                width: 500px;
+                height: 500px;
+                background-color: #fff;
+            }
+
+            #code {
+                background-color: #ddd;
+            }
+        </style>
+    
+    </head>
+
+    <body>
+        <textarea id="code"></textarea>
+        <div id="preview"></div>
+        <script>
+            showResult();
+            $("#code").keydown(function() {
+                showResult();
+            });
+            function showResult() {
+                var aa = $("#code").val();
+                $("#preview").html(aa);
+            }
+        </script>
+    </body>
+
+</html>
