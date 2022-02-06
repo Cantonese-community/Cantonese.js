@@ -279,155 +279,199 @@ const op = {
     "喺" : "in"
 };
 
-const re_id = /^[_\d\w]+|^[\u4e00-\u9fa5]+/;
-const re_str = /\"([^\\\"]|\\.)*\"|\'([^\\\']|\\.)*\'/
-const re_callfunc = /[&](.*?)[)]/;
-const re_number = /^0[xX][0-9a-fA-F]*(\.[0-9a-fA-F]*)?([pP][+\-]?[0-9]+)?|^[0-9]*(\.[0-9]*)?([eE][+\-]?[0-9]+)?/;
-const re_expr = /[|](.*?)[|]/;
-const re_comment = /(?:^|\n|\r)\s*\/\*[\s\S]*?\*\/\s*(?:\r|\n|$)/g;
-const re_js_expr =  /[~][\S\s]*[#]/
-
 /// Main : test
-var code = "讲嘢 a 係 1\n畀我睇下 a 点样先?";
 var TO_JS_CODE = "";
-/*
-let f_path = "../../examples/basic/assign.cantonese"
+var node = []
+
+let f_path = "test/helloworld.cantonese"
 let file = path.resolve(__dirname, f_path);
 
 fs.readFile(file, {encoding : 'utf8'}, (err, _code) => {
     if (err) throw err;
-    code = _code.replace(re_comment, '\n');
-    
+    let l = new Lexical(_code);
     while(true) {
-        tk = Lexical();
-        console.log(tk);
+        let tk = l.get_token();
         if(tk['type'] === "EOF") {
             break;
         }
     }
-    
+    _tokens = l.tokens;
+    p = new Parser(_tokens, node);
+    p.parse();
+    run(node);
+    console.log(TO_JS_CODE);
 });
-*/
-var tokens = []
-var node = []
-while(true) {
-    tk = Lexical();
-    tokens.push(tk);
-    if(tk['type'] === "EOF") {
-        break;
-    }
-}
 
-
-function is_white_space(c) {
-    return ['\t', '\n', '\v', '\f', '\r', ' '].includes(c);
-}
-
-function is_new_line(c) {
-    return ['\r', '\n'].includes(c);
-}
-
-function isIdent(c) {
-    return re_id.test(c);
-}
-
-function isdigit(c) {
-    return /^[0-9]+.?[0-9]*$/.test(c);
-}
-
-function Lexical() {
-    function next(n) {
-        code = code.slice(n);
+class Lexical {
+    constructor(code) {
+        this.code = code;
+        this.line = 1;
+        this.tokens = [];
+        this.re_id = /^[_\d\w]+|^[\u4e00-\u9fa5]+/;
+        this.re_str = /\"([^\\\"]|\\.)*\"|\'([^\\\']|\\.)*\'/
+        this.re_callfunc = /[&](.*?)[)]/;
+        this.re_number = /^0[xX][0-9a-fA-F]*(\.[0-9a-fA-F]*)?([pP][+\-]?[0-9]+)?|^[0-9]*(\.[0-9]*)?([eE][+\-]?[0-9]+)?/;
+        this.re_expr = /[|](.*?)[|]/;
+        this.re_comment = /(?:^|\n|\r)\s*\/\*[\s\S]*?\*\/\s*(?:\r|\n|$)/g;
+        this.re_js_expr =  /[~][\S\s]*[#]/
     }
 
-    function check(s) {
-        return code.startsWith(s);
+    is_white_space(c) {
+        return ['\t', '\n', '\v', '\f', '\r', ' '].includes(c);
+    }
+    
+    is_new_line(c) {
+        return ['\r', '\n'].includes(c);
+    }
+    
+    isIdent(c) {
+        return this.re_id.test(c);
+    }
+    
+    isdigit(c) {
+        return /^[0-9]+.?[0-9]*$/.test(c);
+    }
+    
+    next(n) {
+        this.code = this.code.slice(n);
     }
 
-    function scan(pattern) {
-        m = code.match(pattern);
+    check(s) {
+        return this.code.startsWith(s);
+    }
+
+    scan(pattern) {
+        let m = this.code.match(pattern);
         if (m != null) {
-            next(m[0].length);
+            this.next(m[0].length);
             return m;
         }
     }
 
-    function scan_idenfier() {
-        return scan(re_id);
+    scan_idenfier() {
+        return this.scan(this.re_id);
     }
 
-    function scan_number() {
-        return scan(re_number);
+    scan_number() {
+        return this.scan(this.re_number);
     }
 
-    function scan_short_string() {
-        return scan(re_str);
+    scan_short_string() {
+        return this.scan(this.re_str);
     }
 
-    function scan_callfunc() {
-        return scan(re_callfunc);
+    scan_callfunc() {
+        return this.scan(this.re_callfunc);
     }
 
-    function scan_expr() {
-        return scan(re_expr);
+    scan_expr() {
+        return this.scan(this.re_expr);
     }
 
-    function skip_whitespace() {
-        while (code.length > 0) {
-            if (check('\r\n') || check('\n\r')) {
-                next(2);
-                line += 1;
-            } else if (is_new_line(code[0])) {
-                next(1);
-                line += 1
-            } else if (check('?') || check('？') || check(':') || check('：')) {
-                next(1);
-            } else if (is_white_space(code[0])) {
-                next(1);
+    skip_whitespace() {
+        while (this.code.length > 0) {
+            if (this.check('\r\n') || this.check('\n\r')) {
+                this.next(2);
+                this.line += 1;
+            } else if (this.is_new_line(this.code[0])) {
+                this.next(1);
+                this.line += 1
+            } else if (this.check('?') || this.check('？') || 
+                       this.check(':') || this.check('：')) {
+                this.next(1);
+            } else if (this.is_white_space(this.code[0])) {
+                this.next(1);
             } else {
                 break;
             }
         }
     }
 
-    let line = 1;
-    skip_whitespace();
-    if(code.length == 0) {
-        return {
-            lineno : line,
-            type : "EOF",
-            value : "EOF",
-        };
-    }
-
-    c = code[0];
-
-    if (c == '.' || isdigit(c)) {
-        num = scan_number()[0];
-        return {lineno : line, type : 'number',
-        value : num,};
-    } else if (isIdent(c)) {
-        token = scan_idenfier()[0];
-        if(keywords.includes(token)) {
-            return {lineno : line, type : 'keywords', 
-            value : token, };
-        } else {
-        return {lineno : line, type : 'identifier', 
-            value : token,};
+    get_token() {
+        this.skip_whitespace();
+        if(this.code.length == 0) {
+            return {
+                lineno : this.line,
+                type : "EOF",
+                value : "EOF",
+            };
         }
-    } else if (c == '&') {
-        return {lineno : line, type : 'callfunc', 
-                value : scan_callfunc()[0]};
-    } else if (c == '|') {
-        return {lineno : line, type : 'expr', 
-                value : scan_expr()[0]};
-    }
-    else if (['\'', '\"'].includes(c)) {
-        return {lineno : line, type : 'string', 
-        value : scan_short_string()[0]};
-    }
-    else {
-        return "睇唔明你嘅token" + c;
+    
+        let c = this.code[0];
+    
+        if (c == '.' || this.isdigit(c)) {
+            let num = this.scan_number()[0];
+            this.tokens.push({lineno : this.line, type : 'number',
+            value : num,});
+            return {lineno : this.line, type : 'number',
+            value : num,};
+        } else if (this.isIdent(c) || c == '_') {
+            let token = this.scan_idenfier()[0];
+            if(keywords.includes(token)) {
+                this.tokens.push({lineno : this.line, type : 'keywords', 
+                value : token, });
+                return {lineno : this.line, type : 'keywords', 
+                value : token, };
+            } else {
+            this.tokens.push({lineno : this.line, type : 'identifier', 
+            value : token,});
+            return {lineno : this.line, type : 'identifier', 
+                value : token,};
+            }
+        } else if (c == '&') {
+            let callfunc = this.scan_callfunc()[0];
+            this.tokens.push({lineno : this.line, type : 'callfunc', 
+            value : callfunc})
+            return {lineno : this.line, type : 'callfunc', 
+                    value : callfunc};
+        } else if (c == '|') {
+            let expr = this.scan_expr()[0];
+            this.tokens.push({lineno : this.line, type : 'expr', 
+            value : expr});
+            return {lineno : this.line, type : 'expr', 
+                    value : expr};
+        } else if (c == '-') {
+            if (this.check('->')) {
+                this.next(2);
+                this.tokens.push({lineno : this.line, type : 'keywords',
+                value : kw_do});
+                return {lineno : this.line, type : 'keywords',
+                        value : kw_do};
+            }
+        } else if (c == '@')  {
+            this.next(1);
+            return {lineno : this.line, type : 'keywords',
+                    value : kw_get_value};
+        } else if (c == '{') {
+            this.next(1);
+            this.tokens.push({lineno : this.line, type : 'keywords',
+            value : kw_begin});
+            return {lineno : this.line, type : 'keywords',
+                    value : kw_begin};
+        } else if (c == '}') {
+            this.next(1);
+            this.tokens.push({lineno : this.line, type : 'keywords',
+            value : kw_end});
+            return {lineno : this.line, type : 'keywords',
+                    value : kw_end};
+        } else if (c == '=') {
+            if (this.check('=>')) {
+                this.next(2);
+                this.tokens.push({lineno : this.line, type : 'keywords',
+                value : kw_func_begin});
+                return {lineno : this.line, type : 'keywords',
+                    value : kw_func_begin};
+            }
+        } else if (['\'', '\"'].includes(c)) {
+            let _str = this.scan_short_string()[0];
+            this.tokens.push({lineno : this.line, type : 'string', 
+            value : _str});
+            return {lineno : this.line, type : 'string', 
+            value : _str};
+        }
+        else {
+            return "睇唔明你嘅token" + c;
+        }
     }
 }
 
@@ -525,12 +569,13 @@ class Parser {
             for (let item in tk) {
                 if (this.get(i)[0] === tk[item]) {
                     if (skip) this.pos += 1;
+                    return;
                 }
             }
         }
 
         if (typeof tk == "string") {
-            if (this.get(0)[0] == tk) {
+            if (this.get(i)[0] == tk) {
                 this.pos += 1;
                 return
             }
@@ -551,12 +596,14 @@ class Parser {
         }
 
         if (typeof tk == "string") {
-            if (this.get(0)[1] == tk) {
-                this.pos += 1;
-                return
+            if (this.get(i)[1] === tk) {
+                if (skip) {
+                    this.pos += 1;
+                }
+                return;
             }
         }
-
+        
         let line = this.get(i, true);
         throw "Line " + line + err + "\n 你嘅token係: " + this.get(i)[1];
     }
@@ -700,6 +747,94 @@ class Parser {
                 let _p = new Parser(stmt_if, node_if);
                 _p.parse();
                 this.node_if_new(cond, node_if);
+            }
+
+
+            else if (this.match(kw_elif)) {
+                let cond = this.get_value(this.get(0));
+                this.token_except(kw_then, " : 濑嘢! 揾唔到 '嘅话' ", false, 1);
+                this.token_except(kw_do, " : 濑嘢! 揾唔到 '->' ", false, 2);
+                this.token_except(kw_begin, " : 濑嘢! 揾唔到 '{' ", false, 3);
+                this.skip(4);
+                let elif_case_end = 0;
+                let elif_should_end = 1;
+                let node_elif = [];
+                let stmt_elif = [];
+                while (elif_case_end != elif_should_end && this.pos < this.tokens.length) {
+                    if (this.get(0)[1] == kw_if) {
+                        elif_should_end += 1;
+                        stmt_elif.push(this.tokens[this.pos]);
+                        this.pos += 1;
+                    }
+                    else if (this.get(0)[1] == kw_end) {
+                        elif_case_end += 1;
+                        stmt_elif.push(this.tokens[this.pos])
+                        this.pos += 1;
+                    }
+                    else if (this.get(0)[1] == kw_assign || this.get(0)[1] == tr_kw_assign) {
+                        stmt_elif.push(this.tokens[this.pos]);
+                        this.pos += 1;
+                        if (this.tokens[this.pos]['value'] == kw_do) {
+                            elif_should_end += 1;
+                        }
+                    }
+                    else {
+                        stmt_elif.push(this.tokens[this.pos])
+                        this.pos += 1;
+                    }
+                }
+                let _p = new Parser(stmt_elif, node_elif);
+                _p.parse();
+                this.node_elif_new(cond, node_elif);
+            }
+
+
+            else if (this.match(kw_else_or_not)) {
+                this.token_except(kw_then, " : 濑嘢! 揾唔到 '嘅话' ", 
+                            false, 0);
+                this.token_except(kw_do, " : 濑嘢! 揾唔到 '->' ", 
+                            false, 1);
+                this.token_except(kw_begin, " : 濑嘢! 揾唔到 '{' ",
+                            false, 2);
+                this.skip(3);
+                let else_case_end = 0;
+                let else_should_end = 1;
+                let node_else = [];
+                let stmt_else = [];
+                while (else_case_end != else_should_end && this.pos < this.tokens.length) {
+                    if (this.get(0)[1] == kw_if) {
+                        else_should_end += 1;
+                        stmt_else.push(this.tokens[this.pos]);
+                        this.pos += 1;
+                    }
+                    else if (this.get(0)[1] == kw_end) {
+                        else_case_end += 1;
+                        if (else_case_end != else_should_end) {
+                            stmt_else.push(this.tokens[this.pos]);
+                        }
+                        this.pos += 1;
+                    }
+                    else if (this.get(0)[1] == kw_elif) {
+                        else_should_end += 1;
+                        stmt_else.push(this.tokens[this.pos]);
+                        this.pos += 1
+                    }
+                    else if (this.get(0)[1] == kw_assign  ||
+                             this.get(0)[1] == tr_kw_assign) {
+                        stmt_else.push(this.tokens[this.pos]);
+                        this.pos += 1;
+                        if (this.tokens[this.pos][1][1] == kw_do) {
+                            else_should_end += 1;
+                        }
+                    }
+                    else {
+                        stmt_else.push(this.tokens[this.pos]);
+                        this.pos += 1
+                    }
+                }
+                let p1 = new Parser(stmt_else, node_else);
+                p1.parse();
+                this.node_else_new(node_else);
             }
 
             else if (this.match([kw_assert, tr_kw_assert])) {
@@ -888,8 +1023,33 @@ function run(Nodes, TAB = '', label = '', path = '', arg = '') {
 
         if (Nodes[i][0] == 'node_let') {
             check(TAB);
+            console.log(Nodes[i])
             TO_JS_CODE += TAB + "let " + Nodes[i][1][1] + " = " + Nodes[i][2][1] + ";\n";
         }
+
+        if (Nodes[i][0] == 'node_if') {
+            check(TAB);
+            TO_JS_CODE += TAB + "if (" + Nodes[i][1][1] + ") {\n"
+            run(Nodes[i][2], TAB + '\t', 'if_run');
+            TO_JS_CODE += "}\n";
+        }
+
+        if (Nodes[i][0] == 'node_elif') {
+            check(TAB);
+            TO_JS_CODE += TAB + "else if (" + Nodes[i][1][1] + ") {\n"
+            run(Nodes[i][2], TAB + '\t', 'elif_run');
+            TO_JS_CODE += "}\n";
+            label = '';
+        }
+
+        if (Nodes[i][0] == 'node_else') {
+            check(TAB);
+            TO_JS_CODE += TAB + "else {\n";
+            run(Nodes[i][1], TAB + '\t', 'else_run');
+            TO_JS_CODE += "}\n";
+            label = '';
+        }
+
 
         if (Nodes[i][0] == 'node_pass') {
             check(TAB);
@@ -902,10 +1062,3 @@ function run(Nodes, TAB = '', label = '', path = '', arg = '') {
         }
     }
 }
-
-
-p = new Parser(tokens, node);
-/// console.log(tokens);
-p.parse();
-run(node);
-console.log(TO_JS_CODE);
